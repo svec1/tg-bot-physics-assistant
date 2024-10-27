@@ -15,7 +15,7 @@ frequency_to_lenght = 0
 energy_to_lenght = 0
 resonance = 0
 
-file_api_key = open('api-key', 'r')
+file_api_key = open('api-key.txt', 'r')
 bot = telebot.TeleBot(file_api_key.read());
 file_api_key.close()
 
