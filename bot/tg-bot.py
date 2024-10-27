@@ -1,8 +1,10 @@
 import telebot
 import os
+import copy
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
+from scipy.signal import chirp, find_peaks, peak_widths
 from telebot import types
 
 from const_def import (str_help, str_welcome,
@@ -15,7 +17,7 @@ frequency_to_lenght = 0
 energy_to_lenght = 0
 resonance = 0
 
-file_api_key = open('api-key.txt', 'r')
+file_api_key = open('../api.k', 'r')
 bot = telebot.TeleBot(file_api_key.read());
 file_api_key.close()
 
@@ -25,31 +27,45 @@ itembtn2 = types.KeyboardButton('/энергию-в-длину')
 itembtn3 = types.KeyboardButton('/резонанс')
 itembtn4 = types.KeyboardButton('/мощность-лазерной-системы')
 markup.add(itembtn1, itembtn2, itembtn3, itembtn4)
-def find_dots_between_peak(arrx, arry, y):
+
+def get_dots_peak(arrx: list, arry_c: list):
+    if(len(arry_c) == 0):
+        return []
+
     dots = []
-    dotx = 0
-    doty = 0
+    arry = copy.deepcopy(arry_c)
 
-    y_curr = 0
-    i = 0
-    while y_curr <= int(y/2) and i < arrx[arry.index(y)]-1:
-        y_curr = arry[i]
-        i+=1
+    start_peak = 0
+    start_increase = 0
+    y_small = 0
+    y_start_peak = 0
+    current_peak = 0
 
-    dotx = arrx[i]
-    doty = arry[i]
-    dots.append((dotx, doty))
-    while y_curr <= int(y/2) and i < len(arrx):
-        y_curr = arry[i]
-        i+=1
+    removed = 0
 
-    dotx = arrx[i]
-    doty = arry[i]
-    print((dotx, doty))
-    dots.append((dotx, doty))
+    for y in arry[1:]:
+        prev_y = arry[arry.index(y)-1]
+        if y >= y_start_peak and y >= current_peak and start_peak:
+            y_small = prev_y
+            current_peak = y
+        elif y >= prev_y and start_increase == 0:
+            y_small = prev_y
+            start_increase = 1
+        elif y < current_peak and start_peak:
+            dots.append(((arrx[arry.index(current_peak)]+removed, current_peak), (arry_c[arry_c.index(y)-2], y)))
+            arry.remove(current_peak)
+            removed += 1
+            y_small = y
+            current_peak = 0
+            start_peak = 0
+            #start_increase = 0
+
+
+        if start_increase == 1 and start_peak == 0:
+            start_peak = 1
+            y_start_peak = y_small
 
     return dots
-
 
 @bot.message_handler(commands=['Привет', 'start'])
 def send_welcome(message):
@@ -97,9 +113,9 @@ def send_frequency(message):
         frequency_to_lenght = 0
 
 @bot.message_handler(content_types=['document'])
-def proc_txt_file_to_resonance(message):
+def _proc_txt_file_to_resonance(message):
     global resonance
-    if(resonance == 0):
+    if (resonance == 0):
         return
     file_info = bot.get_file(message.document.file_id)
     downloaded_file = bot.download_file(file_info.file_path)
@@ -114,49 +130,45 @@ def proc_txt_file_to_resonance(message):
     i = 0
     it = -1
     for sym in data_file:
-        it += 1;
-        if(it == len(data_file)-3):
+        it += 1
+        if (it == len(data_file) - 3):
             break
-        elif(it < prefix_file_len or sym == '\\' or sym == 'n'):
+        elif (it < prefix_file_len or sym == '\\' or sym == 'n'):
             continue
-        elif(sym == ' '):
+        elif (sym == ' '):
             current_intensity += 1
-        elif(sym == 't'):
+        elif (sym == 't'):
             current_intensity += 4
-        elif(sym == 'r'):
+        elif (sym == 'r'):
             x.append(i)
             intensity_s.append(current_intensity)
             current_intensity = 0
-            i+=1;
+            i += 1
         else:
             bot.send_message(message.chat.id, "Ошибка, неправильный формат файла!")
             break
 
+    x_array = np.array(x)
+
     plt.figure()
     plt.plot(x, intensity_s)
 
-    plt.plot(x[intensity_s.index(max(intensity_s))], max(intensity_s), 'ro', markersize=7, label='макс.')
-    half_peak_intensity = int(max(intensity_s) - min(intensity_s))
+    dots = get_dots_peak(x, intensity_s)
+    print(str(dots))
+    for dot in dots:
+        point = np.array([dot[0][0], dot[0][1]])
+        plt.scatter(*point, color='red', s=10)
 
-    x_half_peak_intensity = []
-    y_half_peak_intensity = []
+    intensity_s = np.array(intensity_s)
 
-    current_dot = 0
-    dots = find_dots_between_peak(x, intensity_s, max(intensity_s))
+    peaks, _ = find_peaks(intensity_s)
+    results_half = peak_widths(intensity_s, peaks, rel_height=0.5)
+    results_full = peak_widths(intensity_s, peaks, rel_height=1)
 
-    x_half_peak_intensity.append(dots[0][0])
-    x_half_peak_intensity.append(dots[1][0])
-    y_half_peak_intensity.append(dots[0][1])
-    y_half_peak_intensity.append(dots[1][1])
-
-    point1 = np.array([x_half_peak_intensity[0], y_half_peak_intensity[0]])
-    point2 = np.array([x_half_peak_intensity[1], y_half_peak_intensity[1]])
-
-    plt.scatter(*point1, color='blue', label=' A(' + str(x_half_peak_intensity[0]) + ', ' + str(y_half_peak_intensity[0]) +')')
-    plt.scatter(*point2, color='green', label=' B(' + str(x_half_peak_intensity[1]) + ', ' + str(y_half_peak_intensity[1]) +')')
-
-    plt.plot((x_half_peak_intensity[0], x_half_peak_intensity[1]), (y_half_peak_intensity[0], y_half_peak_intensity[1]), color='red')
-    plt.text(x_half_peak_intensity[0]+x_half_peak_intensity[1]/4, y_half_peak_intensity[0]+3, "Hpeak/2 " + str(half_peak_intensity) + ": width " + str(abs(x_half_peak_intensity[1]-x_half_peak_intensity[0])), )
+    plt.plot(x)
+    plt.plot(peaks, x_array[peaks], "x")
+    plt.hlines(*results_half[1:], color="C2")
+    plt.hlines(*results_full[1:], color="C3")
 
     plt.title("График Спектра")
     plt.xlabel("X")
@@ -170,7 +182,8 @@ def proc_txt_file_to_resonance(message):
         bot.send_photo(message.chat.id, photo)
     os.remove(filename)
 
-    bot.send_message(message.chat.id, "Ширина резонанса на полувысоте - " + str(half_peak_intensity) + ": " + str(abs(x_half_peak_intensity[1]-x_half_peak_intensity[0])+1))
+    bot.send_message(message.chat.id, str(results_half[0]))
+
     resonance = 0
 
 if(__name__ == "__main__"):
