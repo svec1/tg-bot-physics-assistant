@@ -1,0 +1,5 @@
+.vs/
+bot/.venv/
+bot/.idea/
+bot/__pycache__
+bot/apy-key
