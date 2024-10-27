@@ -2,5 +2,6 @@
 bot/.venv/
 bot/.idea/
 bot/__pycache__
-*.apy-key
 bot/lib
+
+*.apy-key
