@@ -4,4 +4,4 @@ bot/.idea/
 bot/__pycache__
 bot/lib
 
-*.apy-key
+*.k
