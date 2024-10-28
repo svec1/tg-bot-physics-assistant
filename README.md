@@ -12,6 +12,10 @@ pip install telebot scipy matplotlib
 ## Start
 > [!NOTE]
 > Required: Python
+
+> [!IMPORTANT]
+> In the repository folder you should create an api.k file.
+> Which will contain the api key (from BotFather)
 ```
 cd bot
 python tg-bot.py
