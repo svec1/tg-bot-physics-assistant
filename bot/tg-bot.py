@@ -10,14 +10,16 @@ from scipy.signal import find_peaks, peak_widths
 from telebot import types
 
 from const_def import (str_help, str_welcome,
-                       str_for_user_help, str_frequency_to_lenght,
+                       str_for_user_help, intd_survey, rate_survey, pfist_part_survey, psecond_part_survey, thx_user_for_passed_survey, str_frequency_to_lenght,
                        str_energy_to_lenght, str_resonance, str_laser_fluence_system,
                        const_c, const_h, const_ev_dj, const_nm,
                        action0_str_help, action1_str_freq_to_lenght,action2_str_e_to_lenght,
                        action3_str_lenght_to_freq, action4_str_lenght_to_e, action5_str_resonance,
-                       action6_str_power_ls, str_lenght_to_frequency, str_lenght_to_energy, const_ev_mkev)
+                       action6_str_power_ls, str_lenght_to_frequency, str_lenght_to_energy, const_ev_mkev, count_action)
 
 # pre-init(expectation variables)
+# STATE
+# -------------------------------
 frequency_to_lenght = 0
 energy_to_lenght = 0
 lenght_to_frequency = 0
@@ -27,9 +29,25 @@ avg_power_laser_system = 0 # P = [W]
 dr_action_laser_system = 0 # t = [S]
 distr_area_laser_system = 0 # A = [sm2]
 
+# survey expectation variables
+expected_want_passed_survey = 0
+expected_rating = 0
+expected_explanation = 0
+expected_what_added = 0
+was_survey = 0
+
+used_action = 0
+
+# CURRENT VARIABLES FOR SAVING USER ANSWERS
 current_avg_power_laser_system = 0
 current_dr_action_laser_system = 0
 current_distr_area_laser_system = 0
+# survey rating 0/10
+current_rating = 0
+# Why is the rating this way?
+current_explanation = ""
+# what should be added?
+current_what_added = ""
 
 file_api_key = open('../api.k', 'r')
 bot = telebot.TeleBot(file_api_key.read());
@@ -54,10 +72,11 @@ def is_number(string):
         except ValueError:
             return False
 
-def null_setup_bool_control():
+def null_setup_state():
     global frequency_to_lenght, frequency_to_lenght, \
         energy_to_lenght, lenght_to_frequency, lenght_to_energy, resonance,\
-        avg_power_laser_system, dr_action_laser_system, distr_area_laser_system
+        avg_power_laser_system, dr_action_laser_system, distr_area_laser_system, \
+        expected_want_passed_survey, expected_rating, expected_explanation, expected_what_added
     frequency_to_lenght = 0
     energy_to_lenght = 0
     lenght_to_frequency = 0
@@ -117,46 +136,49 @@ def send_help(message):
 def send_need_frequency(message):
     global frequency_to_lenght
     bot.send_message(message.chat.id, str_frequency_to_lenght)
-    null_setup_bool_control()
+    null_setup_state()
     frequency_to_lenght = 1
 
 def send_need_energy(message):
     global energy_to_lenght
     bot.send_message(message.chat.id, str_energy_to_lenght)
-    null_setup_bool_control()
+    null_setup_state()
     energy_to_lenght = 1
 
 def send_need_lenght_for_freq(message):
     global lenght_to_frequency
     bot.send_message(message.chat.id, str_lenght_to_frequency)
-    null_setup_bool_control()
+    null_setup_state()
     lenght_to_frequency = 1
 
 def send_need_lenght_for_energy(message):
     global lenght_to_energy
     bot.send_message(message.chat.id, str_lenght_to_energy)
-    null_setup_bool_control()
+    null_setup_state()
     lenght_to_energy = 1
 
 def send_need_file_for_resonance(message):
     global resonance
     bot.send_message(message.chat.id, str_resonance)
-    null_setup_bool_control()
+    null_setup_state()
     resonance = 1
 
 def send_need_laser_fluence(message):
     global avg_power_laser_system
     bot.send_message(message.chat.id, str_laser_fluence_system)
-    null_setup_bool_control()
+    null_setup_state()
     avg_power_laser_system = 1
 
 @bot.message_handler(func=lambda message: True)
 def logic(message):
-    global frequency_to_lenght, energy_to_lenght, lenght_to_frequency, lenght_to_energy, \
+    global intd_survey, rate_survey, pfist_part_survey, psecond_part_survey, thx_user_for_passed_survey, frequency_to_lenght, energy_to_lenght, lenght_to_frequency, lenght_to_energy, \
         avg_power_laser_system, dr_action_laser_system, distr_area_laser_system,\
         current_avg_power_laser_system, current_dr_action_laser_system, current_distr_area_laser_system,\
-        const_c, const_h, const_ev_dj, const_nm
+        const_c, const_h, const_ev_dj, const_nm, count_action, used_action, was_survey, expected_rating, expected_explanation, expected_what_added, expected_want_passed_survey,\
+        current_rating, current_explanation, current_what_added
+
     str_message = message.text.lower()
+    
     if frequency_to_lenght == 1 and (str_message.endswith("гц.") or str_message.endswith("гц")  or is_number(str_message)):
         ratio = 1
         if str_message.endswith("."):
@@ -249,10 +271,11 @@ def logic(message):
             bot.send_message(message.chat.id,"Энергия фотона волны длиной " + str_message + original_unit_lenght + ": " + str(energy_mkev/const_ev_mkev) + "эВ. или " + str(energy) + "дж.")
         else:
                 bot.send_message(message.chat.id,"Энергия фотона волны длиной " + str_message + original_unit_lenght + ": " + str(energy_mkev) + "мкэВ. или " + str(energy) + "дж.")
-    elif avg_power_laser_system:
-        if str_message.endswith("вт."):
-            str_message = str_message.rstrip("вт.")
-        elif str_message.endswith("вт"):
+    elif avg_power_laser_system and (str_message.endswith("вт.") or str_message.endswith("вт") or is_number(str_message)):
+        if str_message.endswith("."):
+            str_message = str_message.rstrip(".")
+
+        if str_message.endswith("вт"):
             str_message = str_message.rstrip("вт")
 
         if not is_number(str_message):
@@ -300,8 +323,52 @@ def logic(message):
                          str(current_avg_power_laser_system*current_dr_action_laser_system/current_distr_area_laser_system) + " Дж/м²")
 
         distr_area_laser_system = 0
-    else:
+    elif used_action != count_action:
         command(message)
+
+
+    # [SURVEY]
+    # if it was not there and the number of required user
+    # functions is equal to their total number
+    if not was_survey and used_action == count_action:
+        null_setup_state()
+        if expected_want_passed_survey:
+            if str_message == "да" or str_message == "допустим" or str_message == "ну давай" or str_message == "конечно":
+                bot.send_message(message.chat.id, rate_survey)
+                expected_want_passed_survey = 0
+                expected_rating = 1
+            else:
+                expected_want_passed_survey = 0
+                was_survey = 1
+        elif expected_rating:
+            if not (is_number(str_message) and int(str_message) >= 0 and int(str_message) <= 10):
+                bot.reply_to(message, "Ожидается числовое значение от 0 до 10")
+                return
+            current_rating = int(str_message)
+            bot.send_message(message.chat.id, pfist_part_survey)
+            expected_rating = 0
+            expected_explanation = 1
+        elif expected_explanation:
+            current_explanation = message.text
+            bot.send_message(message.chat.id, psecond_part_survey)
+            expected_explanation = 0
+            expected_what_added = 1
+        elif expected_what_added:
+            current_what_added = message.text
+            bot.send_message(message.chat.id, thx_user_for_passed_survey)
+            expected_what_added = 0
+            was_survey = 1
+
+            ### for developer
+            print("Пользователь с никнеймом " + message.from_user.username +
+                  ", прошёл опрос, оценив бота на " + str(current_rating) + ", за счёт - " + str(current_explanation) +
+                  ". Его пожелания:" + str(current_what_added))
+        else:
+            bot.send_message(message.chat.id, intd_survey)
+            expected_want_passed_survey = 1
+        return
+
+    used_action += 1
 
 @bot.message_handler(func=lambda message: True)
 def command(message):
