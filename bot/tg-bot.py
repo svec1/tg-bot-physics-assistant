@@ -1,32 +1,60 @@
+import math
+
 import telebot
 import os
 import copy
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
-from scipy.signal import chirp, find_peaks, peak_widths
+from scipy.signal import find_peaks, peak_widths
 from telebot import types
 
 from const_def import (str_help, str_welcome,
                        str_for_user_help, str_frequency_to_lenght,
                        str_energy_to_lenght, str_resonance,
-                       const_c, const_h, const_ev_dj)
+                       const_c, const_h, const_ev_dj, const_nm,
+                       action1_str_freq_to_lenght,action2_str_e_to_lenght, action3_str_lenght_to_freq,
+                       action4_str_lenght_to_e, action5_str_resonance, action6_str_power_ls,
+                       str_lenght_to_frequency, str_lenght_to_energy, const_ev_mkev)
+
+def is_number(string):
+    if string.isdigit():
+       return True
+    else:
+        try:
+            float(string)
+            return True
+        except ValueError:
+            return False
 
 # pre-init
 frequency_to_lenght = 0
 energy_to_lenght = 0
+lenght_to_frequency = 0
+lenght_to_energy = 0
 resonance = 0
 
 file_api_key = open('../api.k', 'r')
 bot = telebot.TeleBot(file_api_key.read());
 file_api_key.close()
 
-markup = types.ReplyKeyboardMarkup(row_width=1)
-itembtn1 = types.KeyboardButton('/частоту-в-длину')
-itembtn2 = types.KeyboardButton('/энергию-в-длину')
-itembtn3 = types.KeyboardButton('/резонанс')
-itembtn4 = types.KeyboardButton('/мощность-лазерной-системы')
-markup.add(itembtn1, itembtn2, itembtn3, itembtn4)
+markup = types.ReplyKeyboardMarkup(row_width=3)
+itembtn1 = types.KeyboardButton(action1_str_freq_to_lenght)
+itembtn2 = types.KeyboardButton(action2_str_e_to_lenght)
+itembtn3 = types.KeyboardButton(action3_str_lenght_to_freq)
+itembtn4 = types.KeyboardButton(action4_str_lenght_to_e)
+itembtn5 = types.KeyboardButton(action5_str_resonance)
+itembtn6 = types.KeyboardButton(action6_str_power_ls)
+markup.add(itembtn1, itembtn2, itembtn3, itembtn4, itembtn5, itembtn6)
+
+def null_setup_bool_control():
+    global frequency_to_lenght, frequency_to_lenght, \
+        energy_to_lenght, lenght_to_frequency, lenght_to_energy, resonance
+    frequency_to_lenght = 0
+    energy_to_lenght = 0
+    lenght_to_frequency = 0
+    lenght_to_energy = 0
+    resonance = 0
 
 def get_dots_peak(arrx: list, arry_c: list):
     if(len(arry_c) == 0):
@@ -76,41 +104,111 @@ def send_welcome(message):
 def send_help(message):
     bot.reply_to(message, "Вот мои возможности:\n\n" + str_for_user_help)
 
-@bot.message_handler(commands=['частоту-в-длину'])
 def send_need_frequency(message):
-    global frequency_to_lenght, energy_to_lenght
-    bot.reply_to(message, str_frequency_to_lenght)
+    global frequency_to_lenght
+    bot.send_message(message.chat.id, str_frequency_to_lenght)
+    null_setup_bool_control()
     frequency_to_lenght = 1
-    energy_to_lenght = 0
 
-@bot.message_handler(commands=['энергию-в-длину'])
-def send_need_frequency(message):
-    global energy_to_lenght, frequency_to_lenght
-    bot.reply_to(message, str_energy_to_lenght)
+def send_need_energy(message):
+    global energy_to_lenght
+    bot.send_message(message.chat.id, str_energy_to_lenght)
+    null_setup_bool_control()
     energy_to_lenght = 1
-    frequency_to_lenght = 0
 
-@bot.message_handler(commands=['резонанс'])
-def send_need_resonance(message):
-    global resonance, energy_to_lenght, frequency_to_lenght
-    bot.reply_to(message, str_resonance)
+def send_need_lenght_for_freq(message):
+    global lenght_to_frequency
+    bot.send_message(message.chat.id, str_lenght_to_frequency)
+    null_setup_bool_control()
+    lenght_to_frequency = 1
+
+def send_need_lenght_for_energy(message):
+    global lenght_to_energy
+    bot.send_message(message.chat.id, str_lenght_to_energy)
+    null_setup_bool_control()
+    lenght_to_energy = 1
+
+def send_need_file_for_resonance(message):
+    global resonance
+    bot.send_message(message.chat.id, str_resonance)
+    null_setup_bool_control()
     resonance = 1
-    energy_to_lenght = 0
-    frequency_to_lenght = 0
 
 @bot.message_handler(func=lambda message: True)
-def send_frequency(message):
-    global frequency_to_lenght, energy_to_lenght, const_c, const_h, const_ev_dj
+def logic(message):
+    global frequency_to_lenght, energy_to_lenght, lenght_to_frequency, lenght_to_energy, const_c, const_h, const_ev_dj, const_nm
     str_message = message.text.lower()
-    if str_message.endswith("гц.") and frequency_to_lenght == 1:
+    if frequency_to_lenght == 1 and str_message.endswith("гц."):
         str_message = str_message.replace("гц.", "")
-        bot.send_message(message.chat.id, "Длина волны с частотой в " + str(str_message) + " герц: " + str(const_c/int(str_message)/1000) + "км.")
-        frequency_to_lenght = 0
-    elif str_message.endswith("эв.") and energy_to_lenght == 1:
+        bot.send_message(message.chat.id, "Длина волны с частотой в " + str(str_message) + " герц: " + str(
+            const_c / float(str_message) / 1000) + "км.")
+    elif energy_to_lenght == 1 and str_message.endswith("эв."):
         str_message = str_message.replace("эв.", "")
         bot.send_message(message.chat.id, "Длина волны с энергие фотона в " + str(str_message) + " электрон-вольт: " + str(
-            (const_c*const_h)/(int(str_message)*const_ev_dj)) + "нм.")
-        frequency_to_lenght = 0
+            (const_c * const_h) / (float(str_message) * const_ev_dj)/const_nm) + "нм.")
+    elif lenght_to_frequency == 1 and str_message.endswith("м."):
+        if str_message.endswith("см."):
+            str_message = str_message.replace("см.", "")
+            bot.send_message(message.chat.id,
+                            "Частота волны длиной " + str(str_message) + " см.: " + str(const_c / float(str_message) * 100) + "Гц.")
+        elif str_message.endswith("км."):
+            str_message = str_message.replace("км.", "")
+            bot.send_message(message.chat.id,
+                         "Частота волны длиной " + str(str_message) + " км.: " + str(const_c / float(str_message) / 1000) + "Гц.")
+        else:
+            str_message = str_message.replace("м.", "")
+            bot.send_message(message.chat.id,
+                         "Частота волны длиной " + str(str_message) + " м.: " + str(const_c / float(str_message)) + "Гц.")
+    elif lenght_to_energy and str_message.endswith("м."):
+        ratio = 1
+        if str_message.endswith("нм."):
+            str_message = str_message.replace("нм.", "")
+            ratio = const_nm
+        elif str_message.endswith("см."):
+            str_message = str_message.replace("см.", "")
+            ratio = 0.01
+        else:
+            str_message = str_message.replace("м.", "")
+            ratio = 1
+
+        if not is_number(str_message):
+            bot.reply_to(message, "Нужно числовое значение")
+            return
+
+        energy = (const_c * const_h) / (float(str_message)*ratio)
+        energy_mkev = round((energy / const_ev_dj)* const_ev_mkev, 4)
+        if energy_mkev > 1000:
+            bot.send_message(message.chat.id,"Энергия фотона волны длиной " + str(str_message) + " нм.: " + str(energy_mkev/const_ev_mkev) + "эВ. или " + str(energy) + "дж.")
+        else:
+                bot.send_message(message.chat.id,"Энергия фотона волны длиной " + str(str_message) + " нм.: " + str(energy_mkev) + "мкэВ. или " + str(energy) + "дж.")
+    else:
+        command(message)
+
+@bot.message_handler(func=lambda message: True)
+def command(message):
+    global frequency_to_lenght, energy_to_lenght, lenght_to_frequency, lenght_to_energy, const_c, const_h, const_ev_dj
+    str_message = message.text.lower()
+    if str_message == action1_str_freq_to_lenght:
+        send_need_frequency(message)
+    elif str_message == action2_str_e_to_lenght:
+        send_need_energy(message)
+    elif str_message == action3_str_lenght_to_freq:
+        send_need_lenght_for_freq(message)
+    elif str_message == action4_str_lenght_to_e:
+        send_need_lenght_for_energy(message)
+    elif str_message == action5_str_resonance:
+        send_need_file_for_resonance(message)
+    else:
+        if frequency_to_lenght == 1:
+            bot.reply_to(message, str_frequency_to_lenght)
+        elif energy_to_lenght == 1:
+            bot.reply_to(message, str_energy_to_lenght)
+        elif lenght_to_frequency == 1:
+            bot.reply_to(message, str_lenght_to_frequency)
+        elif lenght_to_energy == 1:
+            bot.reply_to(message, str_lenght_to_energy)
+        else:
+            send_help(message)
 
 @bot.message_handler(content_types=['document'])
 def _proc_txt_file_to_resonance(message):
@@ -146,7 +244,7 @@ def _proc_txt_file_to_resonance(message):
             i += 1
         else:
             bot.send_message(message.chat.id, "Ошибка, неправильный формат файла!")
-            break
+            return
 
     x_array = np.array(x)
 
