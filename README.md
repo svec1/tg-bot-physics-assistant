@@ -11,6 +11,11 @@
 ```
 pip install telebot scipy matplotlib
 ```
+>[!TIP]
+> Recommend:
+```
+pip install -r requirements.txt
+```
 
 ## Start
 > [!IMPORTANT]
