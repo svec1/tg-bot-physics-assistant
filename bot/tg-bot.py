@@ -11,28 +11,25 @@ from telebot import types
 
 from const_def import (str_help, str_welcome,
                        str_for_user_help, str_frequency_to_lenght,
-                       str_energy_to_lenght, str_resonance,
+                       str_energy_to_lenght, str_resonance, str_laser_fluence_system,
                        const_c, const_h, const_ev_dj, const_nm,
-                       action1_str_freq_to_lenght,action2_str_e_to_lenght, action3_str_lenght_to_freq,
-                       action4_str_lenght_to_e, action5_str_resonance, action6_str_power_ls,
-                       str_lenght_to_frequency, str_lenght_to_energy, const_ev_mkev)
+                       action0_str_help, action1_str_freq_to_lenght,action2_str_e_to_lenght,
+                       action3_str_lenght_to_freq, action4_str_lenght_to_e, action5_str_resonance,
+                       action6_str_power_ls, str_lenght_to_frequency, str_lenght_to_energy, const_ev_mkev)
 
-def is_number(string):
-    if string.isdigit():
-       return True
-    else:
-        try:
-            float(string)
-            return True
-        except ValueError:
-            return False
-
-# pre-init
+# pre-init(expectation variables)
 frequency_to_lenght = 0
 energy_to_lenght = 0
 lenght_to_frequency = 0
 lenght_to_energy = 0
 resonance = 0
+avg_power_laser_system = 0 # P = [W]
+dr_action_laser_system = 0 # t = [S]
+distr_area_laser_system = 0 # A = [sm2]
+
+current_avg_power_laser_system = 0
+current_dr_action_laser_system = 0
+current_distr_area_laser_system = 0
 
 file_api_key = open('../api.k', 'r')
 bot = telebot.TeleBot(file_api_key.read());
@@ -47,14 +44,28 @@ itembtn5 = types.KeyboardButton(action5_str_resonance)
 itembtn6 = types.KeyboardButton(action6_str_power_ls)
 markup.add(itembtn1, itembtn2, itembtn3, itembtn4, itembtn5, itembtn6)
 
+def is_number(string):
+    if string.isdigit():
+       return True
+    else:
+        try:
+            float(string)
+            return True
+        except ValueError:
+            return False
+
 def null_setup_bool_control():
     global frequency_to_lenght, frequency_to_lenght, \
-        energy_to_lenght, lenght_to_frequency, lenght_to_energy, resonance
+        energy_to_lenght, lenght_to_frequency, lenght_to_energy, resonance,\
+        avg_power_laser_system, dr_action_laser_system, distr_area_laser_system
     frequency_to_lenght = 0
     energy_to_lenght = 0
     lenght_to_frequency = 0
     lenght_to_energy = 0
     resonance = 0
+    avg_power_laser_system = 0
+    dr_action_laser_system = 0
+    distr_area_laser_system = 0
 
 def get_dots_peak(arrx: list, arry_c: list):
     if(len(arry_c) == 0):
@@ -86,7 +97,6 @@ def get_dots_peak(arrx: list, arry_c: list):
             y_small = y
             current_peak = 0
             start_peak = 0
-            #start_increase = 0
 
 
         if start_increase == 1 and start_peak == 0:
@@ -102,7 +112,7 @@ def send_welcome(message):
 
 @bot.message_handler(commands=['Помоги', 'help'])
 def send_help(message):
-    bot.reply_to(message, "Вот мои возможности:\n\n" + str_for_user_help)
+    bot.reply_to(message, str_for_user_help)
 
 def send_need_frequency(message):
     global frequency_to_lenght
@@ -134,53 +144,162 @@ def send_need_file_for_resonance(message):
     null_setup_bool_control()
     resonance = 1
 
+def send_need_laser_fluence(message):
+    global avg_power_laser_system
+    bot.send_message(message.chat.id, str_laser_fluence_system)
+    null_setup_bool_control()
+    avg_power_laser_system = 1
+
 @bot.message_handler(func=lambda message: True)
 def logic(message):
-    global frequency_to_lenght, energy_to_lenght, lenght_to_frequency, lenght_to_energy, const_c, const_h, const_ev_dj, const_nm
+    global frequency_to_lenght, energy_to_lenght, lenght_to_frequency, lenght_to_energy, \
+        avg_power_laser_system, dr_action_laser_system, distr_area_laser_system,\
+        current_avg_power_laser_system, current_dr_action_laser_system, current_distr_area_laser_system,\
+        const_c, const_h, const_ev_dj, const_nm
     str_message = message.text.lower()
-    if frequency_to_lenght == 1 and str_message.endswith("гц."):
-        str_message = str_message.replace("гц.", "")
-        bot.send_message(message.chat.id, "Длина волны с частотой в " + str(str_message) + " герц: " + str(
-            const_c / float(str_message) / 1000) + "км.")
-    elif energy_to_lenght == 1 and str_message.endswith("эв."):
-        str_message = str_message.replace("эв.", "")
-        bot.send_message(message.chat.id, "Длина волны с энергие фотона в " + str(str_message) + " электрон-вольт: " + str(
-            (const_c * const_h) / (float(str_message) * const_ev_dj)/const_nm) + "нм.")
-    elif lenght_to_frequency == 1 and str_message.endswith("м."):
-        if str_message.endswith("см."):
-            str_message = str_message.replace("см.", "")
-            bot.send_message(message.chat.id,
-                            "Частота волны длиной " + str(str_message) + " см.: " + str(const_c / float(str_message) * 100) + "Гц.")
-        elif str_message.endswith("км."):
-            str_message = str_message.replace("км.", "")
-            bot.send_message(message.chat.id,
-                         "Частота волны длиной " + str(str_message) + " км.: " + str(const_c / float(str_message) / 1000) + "Гц.")
-        else:
-            str_message = str_message.replace("м.", "")
-            bot.send_message(message.chat.id,
-                         "Частота волны длиной " + str(str_message) + " м.: " + str(const_c / float(str_message)) + "Гц.")
-    elif lenght_to_energy and str_message.endswith("м."):
+    if frequency_to_lenght == 1 and (str_message.endswith("гц.") or str_message.endswith("гц")  or is_number(str_message)):
         ratio = 1
-        if str_message.endswith("нм."):
-            str_message = str_message.replace("нм.", "")
-            ratio = const_nm
-        elif str_message.endswith("см."):
-            str_message = str_message.replace("см.", "")
-            ratio = 0.01
-        else:
-            str_message = str_message.replace("м.", "")
-            ratio = 1
+        if str_message.endswith("."):
+            str_message = str_message.rstrip(".")
+
+        if str_message.endswith("кгц"):
+            str_message = str_message.rstrip("кгц")
+            ratio = 1000
+        elif str_message.endswith("гц"):
+            str_message = str_message.rstrip("гц")
 
         if not is_number(str_message):
-            bot.reply_to(message, "Нужно числовое значение")
+            bot.reply_to(message, "Ожидается числовое значение")
+            return
+
+        bot.send_message(message.chat.id, "Длина волны с частотой в " + str(int(str_message)*ratio) + " герц: " + str(
+            (const_c / (float(str_message)*ratio)) / 1000) + "км.")
+    elif energy_to_lenght == 1 and (str_message.endswith("эв.") or str_message.endswith("эв") or is_number(str_message)):
+        ratio = 1
+        if str_message.endswith("."):
+            str_message = str_message.rstrip(".")
+
+        if str_message.endswith("мкэв"):
+            str_message = str_message.rstrip("мкэв")
+            ratio = const_ev_mkev
+        elif str_message.endswith("эв"):
+            str_message = str_message.rstrip("эв")
+
+        if not is_number(str_message):
+            bot.reply_to(message, "Ожидается числовое значение")
+            return
+
+        bot.send_message(message.chat.id, "Длина волны с энергие фотона в " + str(int(str_message)/ratio) + " электрон-вольт: " + str(
+            (const_c * const_h) / ((float(str_message) / ratio) * const_ev_dj)) + "м. или " + str((const_c * const_h) / ((float(str_message) / ratio) * const_ev_dj)/const_nm) + "нм.")
+    elif lenght_to_frequency == 1 and (str_message.endswith("м.") or str_message.endswith("м") or is_number(str_message)):
+        ratio = 1
+        if str_message.endswith("."):
+            str_message = str_message.rstrip(".")
+
+        if str_message.endswith("см"):
+            str_message = str_message.rstrip("см")
+            ratio = 100
+        elif str_message.endswith("км"):
+            str_message = str_message.rstrip("км")
+            ratio = 0.001
+        elif str_message.endswith("м"):
+            str_message = str_message.rstrip("м")
+
+        if not is_number(str_message):
+            bot.reply_to(message, "Ожидается числовое значение")
+            return
+
+        lenght = const_c / float(str_message) * ratio
+        if ratio == 0.001:
+            bot.send_message(message.chat.id,
+                            "Частота волны длиной " + str_message + " км.: " + str(lenght) + "Гц.")
+        elif ratio == 100:
+            bot.send_message(message.chat.id,
+                             "Частота волны длиной " + str_message + " см.: " + str(lenght) + "Гц.")
+        else:
+            bot.send_message(message.chat.id,
+                             "Частота волны длиной " + str_message + " м.: " + str(lenght) + "Гц.")
+    elif lenght_to_energy == 1 and (str_message.endswith("м.") or str_message.endswith("м") or is_number(str_message)):
+        ratio = 1
+        original_unit_lenght = 'м.'
+        if str_message.endswith("."):
+            str_message = str_message.rstrip(".")
+
+        if str_message.endswith("нм"):
+            str_message = str_message.rstrip("нм")
+            original_unit_lenght = 'нм.'
+            ratio = const_nm
+        elif str_message.endswith("см"):
+            str_message = str_message.rstrip("см")
+            original_unit_lenght = 'см.'
+            ratio = 0.01
+        elif str_message.endswith("м"):
+            str_message = str_message.rstrip("м")
+
+
+        if not is_number(str_message):
+            bot.reply_to(message, "Ожидается числовое значение")
             return
 
         energy = (const_c * const_h) / (float(str_message)*ratio)
-        energy_mkev = round((energy / const_ev_dj)* const_ev_mkev, 4)
+        energy_mkev = round((energy / const_ev_dj) * const_ev_mkev, 5)
+
+
         if energy_mkev > 1000:
-            bot.send_message(message.chat.id,"Энергия фотона волны длиной " + str(str_message) + " нм.: " + str(energy_mkev/const_ev_mkev) + "эВ. или " + str(energy) + "дж.")
+            bot.send_message(message.chat.id,"Энергия фотона волны длиной " + str_message + original_unit_lenght + ": " + str(energy_mkev/const_ev_mkev) + "эВ. или " + str(energy) + "дж.")
         else:
-                bot.send_message(message.chat.id,"Энергия фотона волны длиной " + str(str_message) + " нм.: " + str(energy_mkev) + "мкэВ. или " + str(energy) + "дж.")
+                bot.send_message(message.chat.id,"Энергия фотона волны длиной " + str_message + original_unit_lenght + ": " + str(energy_mkev) + "мкэВ. или " + str(energy) + "дж.")
+    elif avg_power_laser_system:
+        if str_message.endswith("вт."):
+            str_message = str_message.rstrip("вт.")
+        elif str_message.endswith("вт"):
+            str_message = str_message.rstrip("вт")
+
+        if not is_number(str_message):
+            bot.reply_to(message, "Ожидается числовое значение")
+            return
+
+        current_avg_power_laser_system = float(str_message)
+        avg_power_laser_system = 0
+        dr_action_laser_system = 1
+        bot.reply_to(message, "Напиши мне время воздействия лазера в секундах")
+    elif dr_action_laser_system:
+        if str_message.endswith("с."):
+            str_message = str_message.rstrip("с.")
+        elif str_message.endswith("с"):
+            str_message = str_message.rstrip("с")
+
+        if not is_number(str_message):
+            bot.reply_to(message, "Ожидается числовое значение")
+            return
+
+        current_dr_action_laser_system = float(str_message)
+        dr_action_laser_system = 0
+        distr_area_laser_system = 1
+        bot.reply_to(message, "Напиши мне площадь распределения энергии лазерного луча в м²")
+    elif distr_area_laser_system:
+        if str_message.endswith("м²."):
+            str_message = str_message.rstrip("м².")
+        elif str_message.endswith("м²"):
+            str_message = str_message.rstrip("м²")
+
+        if not is_number(str_message):
+            bot.reply_to(message, "Ожидается числовое значение")
+            return
+
+        current_distr_area_laser_system = float(str_message)
+
+        # F = (P(avg)*t)/A
+        # ^^^
+        # P - current_avg_power_laser_system [W]
+        # t - current_dr_action_laser_system [s]
+        # A - current_distr_area_laser_system [m²]
+        bot.send_message(message.chat.id, "Флюенс лазерной системы с его средней мощностью в " +
+                         str(current_avg_power_laser_system) + " Вт. и площадью распределения энергии - " +
+                         str(current_distr_area_laser_system) + " м²., за время воздействия в " + str(current_dr_action_laser_system) + " секунд, равен: " +
+                         str(current_avg_power_laser_system*current_dr_action_laser_system/current_distr_area_laser_system) + " Дж/м²")
+
+        distr_area_laser_system = 0
     else:
         command(message)
 
@@ -198,6 +317,10 @@ def command(message):
         send_need_lenght_for_energy(message)
     elif str_message == action5_str_resonance:
         send_need_file_for_resonance(message)
+    elif str_message == action6_str_power_ls:
+        send_need_laser_fluence(message)
+    elif str_message == action0_str_help:
+        send_help(message)
     else:
         if frequency_to_lenght == 1:
             bot.reply_to(message, str_frequency_to_lenght)
