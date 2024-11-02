@@ -6,6 +6,7 @@ import copy
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
+import sqlite3
 from scipy.signal import find_peaks, peak_widths
 from telebot import types
 
@@ -178,7 +179,7 @@ def logic(message):
         current_rating, current_explanation, current_what_added
 
     str_message = message.text.lower()
-    
+
     if frequency_to_lenght == 1 and (str_message.endswith("гц.") or str_message.endswith("гц")  or is_number(str_message)):
         ratio = 1
         if str_message.endswith("."):
@@ -194,7 +195,7 @@ def logic(message):
             bot.reply_to(message, "Ожидается числовое значение")
             return
 
-        bot.send_message(message.chat.id, "Длина волны с частотой в " + str(int(str_message)*ratio) + " герц: " + str(
+        bot.send_message(message.chat.id, "Длина волны с частотой в " + str(float(str_message)*ratio) + " герц: " + str(
             (const_c / (float(str_message)*ratio)) / 1000) + "км.")
     elif energy_to_lenght == 1 and (str_message.endswith("эв.") or str_message.endswith("эв") or is_number(str_message)):
         ratio = 1
@@ -211,7 +212,7 @@ def logic(message):
             bot.reply_to(message, "Ожидается числовое значение")
             return
 
-        bot.send_message(message.chat.id, "Длина волны с энергие фотона в " + str(int(str_message)/ratio) + " электрон-вольт: " + str(
+        bot.send_message(message.chat.id, "Длина волны с энергие фотона в " + str(float(str_message)/ratio) + " электрон-вольт: " + str(
             (const_c * const_h) / ((float(str_message) / ratio) * const_ev_dj)) + "м. или " + str((const_c * const_h) / ((float(str_message) / ratio) * const_ev_dj)/const_nm) + "нм.")
     elif lenght_to_frequency == 1 and (str_message.endswith("м.") or str_message.endswith("м") or is_number(str_message)):
         ratio = 1
@@ -340,6 +341,7 @@ def logic(message):
             else:
                 expected_want_passed_survey = 0
                 was_survey = 1
+                used_action += 1
         elif expected_rating:
             if not (is_number(str_message) and int(str_message) >= 0 and int(str_message) <= 10):
                 bot.reply_to(message, "Ожидается числовое значение от 0 до 10")
@@ -358,11 +360,17 @@ def logic(message):
             bot.send_message(message.chat.id, thx_user_for_passed_survey)
             expected_what_added = 0
             was_survey = 1
+            used_action += 1
+
+            con = sqlite3.connect("data.db")
+            cur = con.cursor()
+            cur.execute(f"INSERT INTO rating VALUES (\'{message.from_user.username}\', {(current_rating)}, \'{current_explanation}\', \'{current_what_added}\')")
+            cur.close()
 
             ### for developer
             print("Пользователь с никнеймом " + message.from_user.username +
                   ", прошёл опрос, оценив бота на " + str(current_rating) + ", за счёт - " + str(current_explanation) +
-                  ". Его пожелания:" + str(current_what_added))
+                  ". Его пожелания: " + str(current_what_added))
         else:
             bot.send_message(message.chat.id, intd_survey)
             expected_want_passed_survey = 1
@@ -477,6 +485,15 @@ def _proc_txt_file_to_resonance(message):
 if(__name__ == "__main__"):
 
     print("Debug info: " + str(bot.get_me()))
+
+    con = sqlite3.connect("data.db")
+    cur = con.cursor()
+    con.commit()
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='rating';")
+    table_exists = cur.fetchone() is not None
+    if not table_exists:
+        cur.execute("CREATE TABLE rating(user, rate_value, why, what_add)")
+    cur.close()
 
     matplotlib.use('SVG')
     bot.polling(none_stop=True, interval=0)
