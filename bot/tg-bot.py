@@ -125,6 +125,21 @@ def get_dots_peak(arrx: list, arry_c: list):
 
     return dots
 
+# length wave in meters
+def range_wave(length_wave):
+    if length_wave >= 0.0001:
+        return "Волна соответствует радиоволнам"
+    elif length_wave >= 7e-7 and length_wave < 0.0001:
+        return "Волна соответствует инфракрасному излучению"
+    elif length_wave >= 4e-7 and length_wave < 7e-7:
+        return "Волна соответствует видимому свету"
+    elif length_wave >= 1e-8 and length_wave < 4e-7:
+        return "Волна соответствует ультрафиолетовому излучению"
+    elif length_wave >= 1e-11 and length_wave < 1e-8:
+        return "Волна соответствует рентгеновскому излучению"
+    elif length_wave < 1e-11:
+        return"Волна соответствует гамма излучению"
+
 @bot.message_handler(commands=['Привет', 'start'])
 def send_welcome(message):
     bot.reply_to(message, str_welcome)
@@ -195,8 +210,13 @@ def logic(message):
             bot.reply_to(message, "Ожидается числовое значение")
             return
 
+        lenght_wave = (const_c / (float(str_message)*ratio))
+
         bot.send_message(message.chat.id, "Длина волны с частотой в " + str(float(str_message)*ratio) + " герц: " + str(
-            (const_c / (float(str_message)*ratio)) / 1000) + "км.")
+            lenght_wave / 1000) + "км.")
+
+        bot.send_message(message.chat.id, range_wave(lenght_wave))
+
     elif energy_to_lenght == 1 and (str_message.endswith("эв.") or str_message.endswith("эв") or is_number(str_message)):
         ratio = 1
         if str_message.endswith("."):
@@ -212,8 +232,13 @@ def logic(message):
             bot.reply_to(message, "Ожидается числовое значение")
             return
 
+        lenght_wave = (const_c * const_h) / ((float(str_message) / ratio) * const_ev_dj)
+
         bot.send_message(message.chat.id, "Длина волны с энергие фотона в " + str(float(str_message)/ratio) + " электрон-вольт: " + str(
-            (const_c * const_h) / ((float(str_message) / ratio) * const_ev_dj)) + "м. или " + str((const_c * const_h) / ((float(str_message) / ratio) * const_ev_dj)/const_nm) + "нм.")
+            lenght_wave) + "м. или " + str(lenght_wave/const_nm) + "нм.")
+
+        bot.send_message(message.chat.id, range_wave(lenght_wave))
+
     elif lenght_to_frequency == 1 and (str_message.endswith("м.") or str_message.endswith("м") or is_number(str_message)):
         ratio = 1
         if str_message.endswith("."):
@@ -242,6 +267,8 @@ def logic(message):
         else:
             bot.send_message(message.chat.id,
                              "Частота волны длиной " + str_message + " м.: " + str(lenght) + "Гц.")
+
+        bot.send_message(message.chat.id, range_wave(lenght))
     elif lenght_to_energy == 1 and (str_message.endswith("м.") or str_message.endswith("м") or is_number(str_message)):
         ratio = 1
         original_unit_lenght = 'м.'
@@ -272,6 +299,9 @@ def logic(message):
             bot.send_message(message.chat.id,"Энергия фотона волны длиной " + str_message + original_unit_lenght + ": " + str(energy_mkev/const_ev_mkev) + "эВ. или " + str(energy) + "дж.")
         else:
                 bot.send_message(message.chat.id,"Энергия фотона волны длиной " + str_message + original_unit_lenght + ": " + str(energy_mkev) + "мкэВ. или " + str(energy) + "дж.")
+
+        bot.send_message(message.chat.id, range_wave(float(str_message)))
+
     elif avg_power_laser_system and (str_message.endswith("вт.") or str_message.endswith("вт") or is_number(str_message)):
         if str_message.endswith("."):
             str_message = str_message.rstrip(".")
